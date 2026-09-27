@@ -1,0 +1,89 @@
+@startuml
+!pragma layout smetana
+title Food Delivery Notification System
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam linetype ortho
+hide empty members
+
+abstract class Notification <<Abstraction>> {
+  #notifier : Notifier {readOnly}
+  #Notification(notifier : Notifier)
+  {abstract} +send(recipient : String, orderId : String) : void
+}
+class OrderReadyNotification <<Refined Abstraction>> {
+  +OrderReadyNotification(notifier : Notifier)
+  +send(recipient : String, orderId : String) : void
+}
+class DeliveryNotification <<Refined Abstraction>> {
+  +DeliveryNotification(notifier : Notifier)
+  +send(recipient : String, orderId : String) : void
+}
+interface Notifier <<Implementor>> {
+  +channel() : String
+  +send(recipient : String, message : String) : void
+}
+class AppNotifier {
+  +channel() : String
+  +send(recipient : String, message : String) : void
+}
+class EmailNotifier {
+  +channel() : String
+  +send(recipient : String, message : String) : void
+}
+class SmsAdapter <<Adapter>> {
+  -service : OldSmsService {readOnly}
+  +SmsAdapter()
+  +SmsAdapter(service : OldSmsService)
+  +channel() : String
+  +send(recipient : String, message : String) : void
+}
+class OldSmsService <<Adaptee>> {
+  {static} +SUCCESS : int = 0 {readOnly}
+  {static} +INVALID_PHONE : int = -1 {readOnly}
+  {static} +UNAVAILABLE : int = -2 {readOnly}
+  {static} +NORMAL_PRIORITY : int = 1 {readOnly}
+  -available : boolean {readOnly}
+  +OldSmsService()
+  +OldSmsService(available : boolean)
+  +sendOldMessage(phoneNumber : long, message : byte[], priority : int) : int
+}
+class NotificationException {
+  +NotificationException(message : String)
+}
+class Exception <<Java>>
+class NotifierSelector {
+  +select(channel : String) : Notifier
+}
+class Main {
+  {static} +main(args : String[]) : void
+}
+
+Notification <|-- OrderReadyNotification
+Notification <|-- DeliveryNotification
+Notification "0..*" o-right- "1" Notifier : holds / Bridge
+Notifier <|.. AppNotifier
+Notifier <|.. EmailNotifier
+Notifier <|.. SmsAdapter
+SmsAdapter "0..*" o-- "1" OldSmsService : wraps
+Exception <|-- NotificationException
+Notifier ..> NotificationException : send throws
+Notification ..> NotificationException : send throws
+NotifierSelector ..> Notifier : discovers via ServiceLoader
+Main ..> NotifierSelector : selects channel
+Main ..> OrderReadyNotification : creates for ready input
+Main ..> DeliveryNotification : creates for delivery input
+
+note bottom of OldSmsService
+  Numeric status codes and RuntimeException failures
+  are translated inside SmsAdapter.
+end note
+legend bottom
+  Solid line + hollow triangle: inheritance
+  Dashed line + hollow triangle: interface implementation
+  Hollow diamond: held object (can be supplied externally)
+  Notification composes behavior using a Notifier reference.
+  Modern send methods throw NotificationException.
+  Test-only stubs are omitted.
+endlegend
+@enduml
